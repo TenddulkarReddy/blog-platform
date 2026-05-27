@@ -13,13 +13,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Connects dynamically using the single Aiven Service URI string
+// Hardcoded database engine configuration to bypass system environment variables
 const db = mysql.createPool({
-  uri: process.env.DATABASE_URL,
+  host: 'mysql-2fef98f0-tenddulkarreddy-361b.j.aivencloud.com',
+  user: 'avnadmin',
+  password: 'AVNS_GIS5VHGHINorhZCkRre',
+  database: 'defaultdb',
+  port: 15430,
   waitForConnections: true,
   connectionLimit: 10,
-  ssl: { rejectUnauthorized: false }
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
+
 
 const initDB = async () => {
   try {
