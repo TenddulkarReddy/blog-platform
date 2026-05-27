@@ -6,34 +6,30 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 
 const app = express();
-// Render assigns a random port dynamically, fallback to 5000 for local testing
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_change_this_in_production';
 
-// Middleware Configuration
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 1. Aiven Cloud MySQL Connection Pool Configuration
+// Explicitly forcing Render Environment variables with no local default strings
 const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || 'defaultdb',
-  port: parseInt(process.env.DB_PORT) || 15403,
+  database: process.env.DB_NAME,
+  port: parseInt(process.env.DB_PORT),
   waitForConnections: true,
   connectionLimit: 10,
-  ssl: { rejectUnauthorized: false } // Required for Aiven Cloud Security
+  ssl: { rejectUnauthorized: false }
 });
 
-// 2. Automate Table Creation Structure on Database Startup
 const initDB = async () => {
   try {
     const conn = await db.getConnection();
     console.log('Successfully connected to Aiven MySQL Instance. Verifying tables...');
     
-    // Create Users Table
     await conn.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -41,8 +37,6 @@ const initDB = async () => {
         password VARCHAR(255) NOT NULL
       )
     `);
-
-    // Create Posts Table
     await conn.query(`
       CREATE TABLE IF NOT EXISTS posts (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -53,8 +47,6 @@ const initDB = async () => {
         FOREIGN KEY (authorId) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
-
-    // Create Comments Table
     await conn.query(`
       CREATE TABLE IF NOT EXISTS comments (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -66,7 +58,6 @@ const initDB = async () => {
         FOREIGN KEY (authorId) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
-
     conn.release();
     console.log('All MySQL Database tables initialized successfully.');
   } catch (err) {
@@ -75,39 +66,30 @@ const initDB = async () => {
 };
 initDB();
 
-// 3. JWT Authentication Security Middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Access token missing. Access denied.' });
+  if (!token) return res.status(401).json({ message: 'Access token missing.' });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Session expired or invalid token.' });
+    if (err) return res.status(403).json({ message: 'Invalid token.' });
     req.user = user;
     next();
   });
 };
 
-// 4. RESTful API Endpoints
-
-// Register Route
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ message: 'All fields are required.' });
-
     const [existing] = await db.execute('SELECT * FROM users WHERE username = ?', [username]);
-    if (existing.length > 0) return res.status(400).json({ message: 'Username is already taken.' });
+    if (existing.length > 0) return res.status(400).json({ message: 'Username taken.' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     await db.execute('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword]);
     res.status(201).json({ message: 'User registered successfully!' });
-  } catch (error) { 
-    res.status(500).json({ error: error.message }); 
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Login Route
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -120,106 +102,47 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '2h' });
     res.json({ token, username: user.username, userId: user.id });
-  } catch (error) { 
-    res.status(500).json({ error: error.message }); 
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Get All Posts Route
 app.get('/api/posts', async (req, res) => {
   try {
     const [posts] = await db.execute(`
-      SELECT p.*, u.username AS authorName 
-      FROM posts p 
-      JOIN users u ON p.authorId = u.id 
-      ORDER BY p.createdAt DESC
+      SELECT p.*, u.username AS authorName FROM posts p 
+      JOIN users u ON p.authorId = u.id ORDER BY p.createdAt DESC
     `);
     res.json(posts);
-  } catch (error) { 
-    res.status(500).json({ error: error.message }); 
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Create Post Route
 app.post('/api/posts', authenticateToken, async (req, res) => {
   try {
     const { title, content } = req.body;
-    if (!title || !content) return res.status(400).json({ message: 'Title and content required.' });
-
-    const [result] = await db.execute(
-      'INSERT INTO posts (title, content, authorId) VALUES (?, ?, ?)',
-      [title, content, req.user.id]
-    );
+    const [result] = await db.execute('INSERT INTO posts (title, content, authorId) VALUES (?, ?, ?)', [title, content, req.user.id]);
     res.status(201).json({ id: result.insertId, title, content, authorId: req.user.id });
-  } catch (error) { 
-    res.status(500).json({ error: error.message }); 
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Update Post Route
-app.put('/api/posts/:id', authenticateToken, async (req, res) => {
-  try {
-    const { title, content } = req.body;
-    const [posts] = await db.execute('SELECT * FROM posts WHERE id = ?', [req.params.id]);
-    if (posts.length === 0) return res.status(404).json({ message: 'Post not found.' });
-    if (posts[0].authorId !== req.user.id) return res.status(403).json({ message: 'Unauthorized action.' });
-
-    await db.execute('UPDATE posts SET title = ?, content = ? WHERE id = ?', [title, content, req.params.id]);
-    res.json({ message: 'Post updated successfully.' });
-  } catch (error) { 
-    res.status(500).json({ error: error.message }); 
-  }
-});
-
-// Delete Post Route
-app.delete('/api/posts/:id', authenticateToken, async (req, res) => {
-  try {
-    const [posts] = await db.execute('SELECT * FROM posts WHERE id = ?', [req.params.id]);
-    if (posts.length === 0) return res.status(404).json({ message: 'Post not found.' });
-    if (posts[0].authorId !== req.user.id) return res.status(403).json({ message: 'Unauthorized action.' });
-
-    await db.execute('DELETE FROM posts WHERE id = ?', [req.params.id]);
-    res.json({ message: 'Post deleted successfully.' });
-  } catch (error) { 
-    res.status(500).json({ error: error.message }); 
-  }
-});
-
-// Get Comments Route
 app.get('/api/posts/:postId/comments', async (req, res) => {
   try {
     const [comments] = await db.execute(`
-      SELECT c.*, u.username AS authorName 
-      FROM comments c 
-      JOIN users u ON c.authorId = u.id 
-      WHERE c.postId = ? 
-      ORDER BY c.createdAt DESC
+      SELECT c.*, u.username AS authorName FROM comments c 
+      JOIN users u ON c.authorId = u.id WHERE c.postId = ? ORDER BY c.createdAt DESC
     `, [req.params.postId]);
     res.json(comments);
-  } catch (error) { 
-    res.status(500).json({ error: error.message }); 
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Create Comment Route
 app.post('/api/posts/:postId/comments', authenticateToken, async (req, res) => {
   try {
     const { content } = req.body;
-    if (!content) return res.status(400).json({ message: 'Comment content cannot be empty.' });
-
-    await db.execute(
-      'INSERT INTO comments (content, postId, authorId) VALUES (?, ?, ?)',
-      [content, req.params.postId, req.user.id]
-    );
+    await db.execute('INSERT INTO comments (content, postId, authorId) VALUES (?, ?, ?)', [content, req.params.postId, req.user.id]);
     res.status(201).json({ message: 'Comment published.' });
-  } catch (error) { 
-    res.status(500).json({ error: error.message }); 
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// 5. Catch-All Route for Frontend SPA routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => console.log(`Server environment executed cleanly on system port ${PORT}`));
+app.listen(PORT, () => console.log(`Server executing seamlessly on port ${PORT}`));
