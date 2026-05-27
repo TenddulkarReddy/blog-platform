@@ -1,7 +1,7 @@
 {
-  "name": "blog-platform-postgres",
+  "name": "blog-platform-aiven",
   "version": "1.0.0",
-  "description": "Full stack blogging platform with Render PostgreSQL",
+  "description": "Full stack blogging platform with Aiven MySQL",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -11,6 +11,6 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.5"
+    "mysql2": "^3.9.7"
   }
 }
