@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql2/promise');
+const mysql = require('mysql2/promise'); // Make sure this says 'mysql' exactly
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -13,15 +13,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-
+// Explicit breakdown format using the verified password
 const db = mysql.createPool({
-  url: "mysql://avnadmin:AVNS_GIS5VHGHIN0rhZCkRre@mysql-2fef98f0-tenddulkarreddy-361b.j.aivencloud.com:15403/defaultdb?ssl-mode=REQUIRED",
+  host: 'mysql-2fef98f0-tenddulkarreddy-361b.j.aivencloud.com',
+  user: 'avnadmin',
+  password: 'AVNS_GiS5VHGHINorhZCkRre',
+  database: 'defaultdb',
+  port: 15403,
   waitForConnections: true,
   connectionLimit: 10,
   ssl: {
     rejectUnauthorized: false
   }
 });
+
 
 
 
