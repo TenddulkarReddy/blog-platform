@@ -14,11 +14,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Database Connection Pool
+// Database Connection Pool using explicit properties to prevent parsing bugs
 const db = mysql.createPool({
   host: 'mysql-2fef98f0-tenddulkarreddy-361b.j.aivencloud.com',
   user: 'avnadmin',
-  password: 'AVNS_GiS5VHGHINorhZCkRre',
+  password: 'AVNS_GIS5VHGHINorhZCkRre',
   database: 'defaultdb',
   port: 15403,
   waitForConnections: true,
@@ -106,7 +106,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Auth: Login
+// Auth: Login (Sends complete authorization credentials back to user dashboard)
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -119,7 +119,13 @@ app.post('/api/auth/login', async (req, res) => {
     if (!validPassword) return res.status(400).json({ message: 'Invalid credentials.' });
 
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token, username: user.username });
+    
+    // Explicitly returning userId helps your index frontend match authorId conditions
+    res.json({ 
+      token, 
+      username: user.username,
+      userId: user.id 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
