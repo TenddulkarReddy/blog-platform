@@ -18,7 +18,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const db = mysql.createPool({
   host: 'mysql-2fef98f0-tenddulkarreddy-361b.j.aivencloud.com',
   user: 'avnadmin',
-  password: 'AVNS_GIS5VHGHINorhZCkRre',
+  password: 'AVNS_GiS5VHGHINorhZCkRre',
   database: 'defaultdb',
   port: 15403,
   waitForConnections: true,
