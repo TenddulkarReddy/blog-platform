@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Blog Platform (MySQL)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [view, setView] = useState('home');
+      const [posts, setPosts] = useState([]);
+      const [currentPost, setCurrentPost] = useState(null);
+      const [comments, setComments] = useState([]);
+      const [commentInput, setCommentInput] = useState('');
+      
+      const [user, setUser] = useState(JSON.parse(localStorage.getItem('blogUser')) || null);
+      const [authForm, setAuthForm] = useState({ username: '', password: '' });
+      const [postForm, setPostForm] = useState({ title: '', content: '' });
+      const [authError, setAuthError] = useState('');
+
+      useEffect(() => {
+        fetchPosts();
+      }, []);
+
+      const fetchPosts = async () => {
+        try {
+          const res = await fetch('/api/posts');
+          const data = await res.json();
+          setPosts(data);
+        } catch (err) { console.error("Error matching rows:", err); }
+      };
+
+      const fetchComments = async (postId) => {
+        try {
+          const res = await fetch(`/api/posts/${postId}/comments`);
+          const data = await res.json();
+          setComments(data);
+        } catch (err) { console.error(err); }
+      };
+
+      const handleAuthSubmit = async (type) => {
+        setAuthError('');
+        try {
+          const res = await fetch(`/api/auth/${type}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(authForm)
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Something went wrong');
+
+          if (type === 'login') {
+            localStorage.setItem('blogUser', JSON.stringify(data));
+            setUser(data);
+            setAuthForm({ username: '', password: '' });
+            setView('home');
+            fetchPosts();
+          } else {
+            alert('Registration complete! Please log in.');
+            setView('login');
+          }
+        } catch (err) { setAuthError(err.message); }
+      };
+
+      const handleLogout = () => {
+        localStorage.removeItem('blogUser');
+        setUser(null);
+        setView('home');
+      };
+
+      const handleCreatePost = async () => {
+        try {
+          const res = await fetch('/api/posts', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify(postForm)
+          });
+          if (res.ok) {
+            setPostForm({ title: '', content: '' });
+            fetchPosts();
+            setView('home');
+          }
+        } catch (err) { console.error(err); }
+      };
+
+      const handleUpdatePost = async () => {
+        try {
+          const res = await fetch(`/api/posts/${currentPost.id}`, {
+            method: 'PUT',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify(postForm)
+          });
+          if (res.ok) {
+            setPostForm({ title: '', content: '' });
+            fetchPosts();
+            setView('home');
+          }
+        } catch (err) { console.error(err); }
+      };
+
+      const handleDeletePost = async (id) => {
+        if (!confirm("Are you sure you want to remove this post?")) return;
+        try {
+          const res = await fetch(`/api/posts/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${user.token}` }
+          });
+          if (res.ok) {
+            fetchPosts();
+            setView('home');
+          }
+        } catch (err) { console.error(err); }
+      };
+
+      const handleAddComment = async (e) => {
+        e.preventDefault();
+        if(!commentInput.trim()) return;
+        try {
+          const res = await fetch(`/api/posts/${currentPost.id}/comments`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify({ content: commentInput })
+          });
+          if (res.ok) {
+            setCommentInput('');
+            fetchComments(currentPost.id);
+          }
+        } catch (err) { console.error(err); }
+      };
+
+      const openDetails = (post) => {
+        setCurrentPost(post);
+        fetchComments(post.id);
+        setView('details');
+      };
+
+      return (
+        <div>
+          <nav class="bg-white shadow-sm border-b py-4 px-6 flex justify-between items-center max-w-6xl mx-auto rounded-b-xl">
+            <h1 onClick={() => { setView('home'); fetchPosts(); }} class="text-2xl font-bold text-blue-600 cursor-pointer">SQLBlog</h1>
+            <div class="space-x-4">
+              <button onClick={() => { setView('home'); fetchPosts(); }} class="text-gray-600 hover:text-blue-600 font-medium">Home</button>
+              {user ? (
+                <>
+                  <button onClick={() => { setPostForm({title:'', content:''}); setView('create'); }} class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium">New Post</button>
+                  <span class="text-sm font-semibold text-gray-700">Hi, {user.username}</span>
+                  <button onClick={handleLogout} class="text-red-500 hover:underline text-sm">Logout</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setView('login')} class="text-blue-600 hover:underline">Login</button>
+                  <button onClick={() => setView('register')} class="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900">Sign Up</button>
+                </>
+              )}
+            </div>
+          </nav>
+
+          <main class="max-w-4xl mx-auto p-6">
+            
+            {/* HOME VIEW */}
+            {view === 'home' && (
+              <div>
+                <h2 class="text-3xl font-extrabold tracking-tight mb-8">Latest Relational Database Articles</h2>
+                {posts.length === 0 ? <p class="text-gray-500">No blog posts found. Write one now!</p> : (
+                  <div class="grid gap-6">
+                    {posts.map(post => (
+                      <div key={post.id} class="p-6 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <h3 onClick={() => openDetails(post)} class="text-xl font-bold text-gray-900 hover:text-blue-600 cursor-pointer mb-2">{post.title}</h3>
+                        <p class="text-gray-600 mb-4 line-clamp-3">{post.content}</p>
+                        <div class="flex justify-between items-center text-xs text-gray-400">
+                          <span>By <strong>{post.authorName || 'User'}</strong> • {new Date(post.createdAt).toLocaleDateString()}</span>
+                          <button onClick={() => openDetails(post)} class="text-blue-500 font-semibold hover:underline">Read & Comment →</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AUTH FORMS */}
+            {(view === 'login' || view === 'register') && (
+              <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-100 mt-10">
+                <h2 class="text-2xl font-bold mb-6 text-center capitalize">{view} Account</h2>
+                {authError && <div class="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">{authError}</div>}
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-xs uppercase font-bold text-gray-500 tracking-wider mb-2">Username</label>
+                    <input type="text" class="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={authForm.username} onChange={e => setAuthForm({...authForm, username: e.target.value})} />
+                  </div>
+                  <div>
+                    <label class="block text-xs uppercase font-bold text-gray-500 tracking-wider mb-2">Password</label>
+                    <input type="password" class="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={authForm.password} onChange={e => setAuthForm({...authForm, password: e.target.value})} />
+                  </div>
+                  <button onClick={() => handleAuthSubmit(view)} class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 capitalize">{view}</button>
+                </div>
+              </div>
+            )}
+
+            {/* CREATE & EDIT VIEW */}
+            {(view === 'create' || view === 'edit') && (
+              <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-2xl font-bold mb-6">{view === 'create' ? 'Publish New Article' : 'Modify Article'}</h2>
+                <div class="space-y-4">
+                  <input type="text" placeholder="Catchy Title..." class="w-full border text-lg font-semibold p-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" value={postForm.title} onChange={e => setPostForm({...postForm, title: e.target.value})} />
+                  <textarea rows="8" placeholder="Write your thoughts here..." class="w-full border p-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" value={postForm.content} onChange={e => setPostForm({...postForm, content: e.target.value})}></textarea>
+                  <button onClick={view === 'create' ? handleCreatePost : handleUpdatePost} class="bg-green-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-green-700">Save & Publish</button>
+                </div>
+              </div>
+            )}
+
+            {/* DETAILED POST VIEW */}
+            {view === 'details' && currentPost && (
+              <div>
+                <article class="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8">
+                  <h2 class="text-3xl font-extrabold mb-4">{currentPost.title}</h2>
+                  <p class="text-xs text-gray-400 mb-6">Published by <strong class="text-gray-600">{currentPost.authorName}</strong> on {new Date(currentPost.createdAt).toLocaleDateString()}</p>
+                  <p class="text-gray-700 text-lg leading-relaxed whitespace-pre-wrap">{currentPost.content}</p>
+                  
+                  {user && user.userId === currentPost.authorId && (
+                    <div class="mt-8 pt-4 border-t space-x-3">
+                      <button onClick={() => { setPostForm({title: currentPost.title, content: currentPost.content}); setView('edit'); }} class="bg-amber-500 text-white text-xs px-4 py-2 rounded font-semibold hover:bg-amber-600">Edit Post</button>
+                      <button onClick={() => handleDeletePost(currentPost.id)} class="bg-red-600 text-white text-xs px-4 py-2 rounded font-semibold hover:bg-red-700">Delete Post</button>
+                    </div>
+                  )}
+                </article>
+
+                {/* COMMENTS SECTION */}
+                <section class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                  <h3 class="text-xl font-bold mb-6">Comments ({comments.length})</h3>
+                  
+                  {user ? (
+                    <form onSubmit={handleAddComment} class="mb-6">
+                      <textarea rows="3" placeholder="Join the discussion..." class="w-full border p-3 rounded-lg outline-none text-sm focus:ring-2 focus:ring-blue-500" value={commentInput} onChange={e => setCommentInput(e.target.value)}></textarea>
+                      <button type="submit" class="mt-2 bg-blue-600 text-white px-4 py-2 text-sm rounded-lg font-medium hover:bg-blue-700">Submit Comment</button>
+                    </form>
+                  ) : (
+                    <p class="text-sm text-gray-500 mb-6 bg-gray-50 p-3 rounded-lg">Please <span class="text-blue-600 underline cursor-pointer font-semibold" onClick={() => setView('login')}>login</span> to comment.</p>
+                  )}
+
+                  <div class="space-y-4">
+                    {comments.map(c => (
+                      <div key={c.id} class="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div class="flex justify-between text-xs font-semibold text-gray-500 mb-1">
+                          <span>{c.authorName || 'User'}</span>
+                          <span>{new Date(c.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <p class="text-sm text-gray-700">{c.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            )}
+
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
