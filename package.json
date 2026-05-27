@@ -1,7 +1,7 @@
 {
-  "name": "blog-platform-mysql",
+  "name": "blog-platform-postgres",
   "version": "1.0.0",
-  "description": "Full stack blogging platform with MySQL",
+  "description": "Full stack blogging platform with Render PostgreSQL",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -11,6 +11,6 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.9.7"
+    "pg": "^8.11.5"
   }
 }
