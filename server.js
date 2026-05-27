@@ -1,5 +1,5 @@
 const express = require('express');
-const { Pool } = require('pg'); // Swapped to PostgreSQL Client
+const { Pool } = require('pg');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -13,10 +13,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Connects directly using Render's Internal/External Connection String
+// Enforcing strict SSL configuration required by Render PostgreSQL Core
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 const initDB = async () => {
@@ -33,7 +35,7 @@ const initDB = async () => {
       )
     `);
 
-    // Create Posts Table (Fixed column double quotes)
+    // Create Posts Table
     await client.query(`
       CREATE TABLE IF NOT EXISTS posts (
         id SERIAL PRIMARY KEY,
@@ -45,7 +47,7 @@ const initDB = async () => {
       )
     `);
 
-    // Create Comments Table (Fixed column double quotes)
+    // Create Comments Table
     await client.query(`
       CREATE TABLE IF NOT EXISTS comments (
         id SERIAL PRIMARY KEY,
@@ -61,10 +63,12 @@ const initDB = async () => {
     client.release();
     console.log('All PostgreSQL Database tables initialized successfully.');
   } catch (err) {
-    console.error('Critical Error initializing database tables:', err.message);
+    // Printing full error stack trace to the terminal logs so nothing is blank
+    console.error('Critical Error initializing database tables:', err);
   }
 };
 initDB();
+
 
 
 const authenticateToken = (req, res, next) => {
