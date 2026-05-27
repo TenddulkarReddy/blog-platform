@@ -15,11 +15,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Hardcoded database engine configuration to bypass system environment variables
 const db = mysql.createPool({
-  host: 'mysql-2fef98f0-tenddulkarreddy-361b.j.aivencloud.com',
-  user: 'avnadmin',
-  password: 'AVNS_GIS5VHGHINorhZCkRre',
-  database: 'defaultdb',
-  port: 15430,
+  uri: "mysql://avnadmin:AVNS_GIS5VHGHINorhZCkRre@mysql-2fef98f0-tenddulkarreddy-361b.j.aivencloud.com:15403/defaultdb?ssl-mode=REQUIRED",
   waitForConnections: true,
   connectionLimit: 10,
   ssl: {
