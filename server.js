@@ -14,11 +14,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 
-// Explicit breakdown format to prevent connection string character parsing bugs
+// Hardcoded database engine configuration to bypass system environment variables
 const db = mysql.createPool({
   host: 'mysql-2fef98f0-tenddulkarreddy-361b.j.aivencloud.com',
   user: 'avnadmin',
-  password: 'AVNS_GIS5VHGHINorhZCkRre',
+  password: 'AVNS_GIS5VHGHIN0rhZCkRre',
   database: 'defaultdb',
   port: 15403,
   waitForConnections: true,
@@ -27,6 +27,7 @@ const db = mysql.createPool({
     rejectUnauthorized: false
   }
 });
+
 
 
 
