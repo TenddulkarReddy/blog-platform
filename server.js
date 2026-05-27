@@ -24,7 +24,7 @@ const initDB = async () => {
     const client = await db.connect();
     console.log('Successfully connected to Render PostgreSQL Database. Verifying tables...');
     
-    // Create Users Table (PostgreSQL Syntax)
+    // Create Users Table
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -33,26 +33,26 @@ const initDB = async () => {
       )
     `);
 
-    // Create Posts Table (PostgreSQL Syntax)
+    // Create Posts Table (Fixed column double quotes)
     await client.query(`
       CREATE TABLE IF NOT EXISTS posts (
         id SERIAL PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
         content TEXT NOT NULL,
-        authorId INT NOT NULL,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "authorId" INT NOT NULL,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY ("authorId") REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 
-    // Create Comments Table (PostgreSQL Syntax)
+    // Create Comments Table (Fixed column double quotes)
     await client.query(`
       CREATE TABLE IF NOT EXISTS comments (
         id SERIAL PRIMARY KEY,
         content TEXT NOT NULL,
-        postId INT NOT NULL,
-        authorId INT NOT NULL,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "postId" INT NOT NULL,
+        "authorId" INT NOT NULL,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY ("postId") REFERENCES posts(id) ON DELETE CASCADE,
         FOREIGN KEY ("authorId") REFERENCES users(id) ON DELETE CASCADE
       )
@@ -65,6 +65,7 @@ const initDB = async () => {
   }
 };
 initDB();
+
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
